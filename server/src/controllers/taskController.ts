@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
+//import prisma from "../util1/prisma";
+
 
 const prisma = new PrismaClient();
 
@@ -110,5 +112,17 @@ export const getUserTasks = async (
     res
       .status(500)
       .json({ message: `Error retrieving user's tasks: ${error.message}` });
+  }
+};
+
+export const deleteTask = async (req: Request, res: Response): Promise<void> => {
+  const { taskId } = req.params;
+  try {
+    await prisma.task.delete({
+      where: { id: Number(taskId) }
+    });
+    res.status(200).json({ message: "Task deleted successfully" });
+  } catch (error: any) {
+    res.status(500).json({ message: `Error deleting task: ${error.message}` });
   }
 };

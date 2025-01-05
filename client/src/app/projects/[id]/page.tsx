@@ -37,6 +37,7 @@ const Project = ({ params }: Props) => {
       {activeTab === "Table" && (
         <Table id={id} setIsModalNewTaskOpen={setIsModalNewTaskOpen} />
       )}
+      
     </div>
   );
 };

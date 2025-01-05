@@ -1,154 +1,236 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-//import { fetchAuthSession, getCurrentUser } from "aws-amplify/auth";
 
 export interface Project {
-  id: number;
-  name: string;
-  description?: string;
-  startDate?: string;
-  endDate?: string;
+ id: number;
+ name: string;
+ description?: string;
+ startDate?: string;
+ endDate?: string;
+ actualEndDate?: string;  
+ tasks?: Task[];
 }
 
 export enum Priority {
-  Urgent = "Urgent",
-  High = "High",
-  Medium = "Medium",
-  Low = "Low",
-  Backlog = "Backlog",
+ Urgent = "Urgent",
+ High = "High", 
+ Medium = "Medium",
+ Low = "Low",
+ Backlog = "Backlog",
+}
+
+export interface ProjectTaskCount {
+  projectId: number;
+  projectName: string;
+  totalTasks: number;
+  tasksByStatus: {
+    [Status.ToDo]: number;
+    [Status.WorkInProgress]: number;
+    [Status.UnderReview]: number;
+    [Status.Completed]: number;
+  };
 }
 
 export enum Status {
-  ToDo = "To Do",
-  WorkInProgress = "Work In Progress",
-  UnderReview = "Under Review",
-  Completed = "Completed",
+ ToDo = "To Do",
+ WorkInProgress = "Work In Progress", 
+ UnderReview = "Under Review",
+ Completed = "Completed",
 }
 
 export interface User {
-  userId?: number;
-  username: string;
-  email: string;
-  profilePictureUrl?: string;
-  cognitoId?: string;
-  teamId?: number;
+ userId?: number;
+ username: string;
+ email: string;
+ profilePictureUrl?: string;
+ cognitoId?: string;
+ teamId?: number;
 }
 
 export interface Attachment {
-  id: number;
-  fileURL: string;
-  fileName: string;
-  taskId: number;
-  uploadedById: number;
+ id: number;
+ fileURL: string;
+ fileName: string;
+ taskId: number;
+ uploadedById: number;
 }
 
-export interface Task {
-  id: number;
-  title: string;
-  description?: string;
-  status?: Status;
-  priority?: Priority;
-  tags?: string;
-  startDate?: string;
-  dueDate?: string;
-  points?: number;
-  projectId: number;
-  authorUserId?: number;
-  assignedUserId?: number;
-  
+interface GetProjectsArgs {
+  completed?: boolean;
+}
 
-  author?: User;
-  assignee?: User;
-  comments?: Comment[];
-  attachments?: Attachment[];
+
+
+export interface Task {
+ id: number;
+ title: string;
+ description?: string;
+ status?: Status;
+ priority?: Priority;
+ tags?: string;
+ startDate?: string;
+ dueDate?: string;
+ points?: number;
+ projectId: number;
+ authorUserId?: number;
+ assignedUserId?: number;
+ createdAt?: string;
+ updatedAt?: string;
+ author?: User;
+ assignee?: User;
+ comments?: Comment[];
+ attachments?: Attachment[];
 }
 
 export interface SearchResults {
-  tasks?: Task[];
-  projects?: Project[];
-  users?: User[];
+ tasks?: Task[];
+ projects?: Project[];
+ users?: User[];
 }
 
 export interface Team {
-  teamId: number;
-  teamName: string;
-  productOwnerUserId?: number;
-  projectManagerUserId?: number;
+ teamId: number;
+ teamName: string;
+ productOwnerUserId?: number;
+ projectManagerUserId?: number;
 }
+
+
 
 export const api = createApi({
   baseQuery: fetchBaseQuery({ baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL}),
   reducerPath: "api",
-  tagTypes: ["Projects", "Tasks", "Users", "Teams"],
+  tagTypes: ["Projects", "Tasks", "Users", "Teams", "Comments", "Attachments", "Auth"],
   endpoints: (build) => ({
     getProjects: build.query<Project[], void>({
-      query: () => "projects",
+      query: () => ({
+        url: "projects",
+        params: { completed: 'false' }
+      }),
       providesTags: ["Projects"],
     }),
+
+    getCompletedProjects: build.query<Project[], void>({
+      query: () => ({
+        url: "projects",
+        params: { completed: 'true' }
+      }),
+      providesTags: ["Projects"],
+    }),
+
     createProject: build.mutation<Project, Partial<Project>>({
       query: (project) => ({
         url: "projects",
-        method: "POST",
+        method: "POST", 
         body: project,
       }),
       invalidatesTags: ["Projects"],
     }),
-    getTasks: build.query<Task[], { projectId: number }>({
-      query: ({ projectId }) => `tasks?projectId=${projectId}`,
-      providesTags: (result) =>
-        result
-          ? result.map(({ id }) => ({ type: "Tasks" as const, id }))
-          : [{ type: "Tasks" as const }],
+
+    deleteProject: build.mutation<void, number>({
+      query: (projectId) => ({
+        url: `/projects/${projectId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Projects", "Tasks"],
     }),
+
+    updateProject: build.mutation<Project, Partial<Project>>({
+      query: (project) => ({
+        url: `projects/${project.id}`,
+        method: "PATCH",
+        body: project,
+      }),
+      invalidatesTags: ["Projects"],
+    }),
+
+
+   getTasks: build.query<Task[], { projectId: number }>({
+     query: ({ projectId }) => `tasks?projectId=${projectId}`,
+     providesTags: (result) =>
+       result
+         ? result.map(({ id }) => ({ type: "Tasks" as const, id }))
+         : [{ type: "Tasks" as const }],
+   }),
 
    getTasksByUser: build.query<Task[], number>({
-      query: (userId) => `tasks/user/${userId}`,
-      providesTags: (result, error, userId) =>
-        result
-          ? result.map(({ id }) => ({ type: "Tasks", id }))
-          : [{ type: "Tasks", id: userId }],
+     query: (userId) => `tasks/user/${userId}`,
+     providesTags: (result, error, userId) =>
+       result
+         ? result.map(({ id }) => ({ type: "Tasks", id }))
+         : [{ type: "Tasks", id: userId }],
+   }),
+   
+   createTask: build.mutation<Task, Partial<Task>>({
+     query: (task) => ({
+       url: "tasks",
+       method: "POST",
+       body: task,
+     }),
+     invalidatesTags: ["Tasks"],
+   }),
+  
+   deleteTask: build.mutation<void, number>({
+    query: (taskId) => ({
+      url: `tasks/${taskId}`, // This is correct
+      method: "DELETE",
     }),
-    
-    createTask: build.mutation<Task, Partial<Task>>({
-      query: (task) => ({
-        url: "tasks",
-        method: "POST",
-        body: task,
-      }),
-      invalidatesTags: ["Tasks"],
-    }),
-
-    updateTaskStatus: build.mutation<Task, { taskId: number; status: string }>({
-      query: ({ taskId, status }) => ({
-        url: `tasks/${taskId}/status`,
-        method: "PATCH",
-        body: { status },
-      }),
-      invalidatesTags: (result, error, { taskId }) => [
-        { type: "Tasks", id: taskId },
-      ],
-    }),
-    getUsers: build.query<User[], void>({
-      query: () => "users",
-      providesTags: ["Users"],
-    }),
-    getTeams: build.query<Team[], void>({
-      query: () => "teams",
-      providesTags: ["Teams"],
-    }),
-    search: build.query<SearchResults, string>({
-      query: (query) => `search?query=${query}`,
-    }),
+    invalidatesTags: ["Tasks", "Comments", "Attachments"],
   }),
+  
+
+   updateTaskStatus: build.mutation<Task, { taskId: number; status: string }>({
+     query: ({ taskId, status }) => ({
+       url: `tasks/${taskId}/status`,
+       method: "PATCH",
+       body: { status },
+     }),
+     invalidatesTags: (result, error, { taskId }) => [
+       { type: "Tasks", id: taskId },
+     ],
+   }),
+
+   getUsers: build.query<User[], void>({
+     query: () => "users",
+     providesTags: ["Users"],
+   }),
+
+   getTeams: build.query<Team[], void>({
+     query: () => "teams", 
+     providesTags: ["Teams"],
+   }),
+
+   getComments: build.query<Comment[], number>({
+     query: (taskId) => `tasks/${taskId}/comments`,
+     providesTags: ["Comments"],
+   }),
+
+   getAttachments: build.query<Attachment[], number>({
+     query: (taskId) => `tasks/${taskId}/attachments`,
+     providesTags: ["Attachments"], 
+   }),
+
+   search: build.query<SearchResults, string>({
+     query: (query) => `search?query=${query}`,
+   }),
+
+   
+ }),
 });
 
 export const {
   useGetProjectsQuery,
+  useGetCompletedProjectsQuery,
   useCreateProjectMutation,
-  useGetTasksQuery,
-  useCreateTaskMutation,
-  useUpdateTaskStatusMutation,
-  useSearchQuery,
-  useGetUsersQuery,
-  useGetTeamsQuery,
+ useGetTasksQuery,
+ useCreateTaskMutation,
+ useUpdateTaskStatusMutation,
+ useSearchQuery,
+ useGetUsersQuery,
+ useGetTeamsQuery,
  useGetTasksByUserQuery,
+ useDeleteTaskMutation,
+ useDeleteProjectMutation,
+ useGetCommentsQuery,
+ useGetAttachmentsQuery,
+ useUpdateProjectMutation
 } = api;

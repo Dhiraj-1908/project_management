@@ -38,13 +38,14 @@ model Team {
 }
 
 model Project {
-  id           Int           @id @default(autoincrement())
+ id           Int           @id @default(autoincrement()) 
   name         String
   description  String?
   startDate    DateTime?
   endDate      DateTime?
-  tasks        Task[]
+  tasks        Task[]        
   projectTeams ProjectTeam[]
+  actualEndDate DateTime?
 }
 
 model ProjectTeam {
@@ -69,12 +70,12 @@ model Task {
   authorUserId   Int
   assignedUserId Int?
 
-  project         Project          @relation(fields: [projectId], references: [id])
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade) // Specify `onDelete` here
   author          User             @relation("TaskAuthor", fields: [authorUserId], references: [userId])
   assignee        User?            @relation("TaskAssignee", fields: [assignedUserId], references: [userId])
-  taskAssignments TaskAssignment[]
-  attachments     Attachment[]
-  comments        Comment[]
+  taskAssignments TaskAssignment[] // No `onDelete` here
+  attachments     Attachment[]     // No `onDelete` here
+  comments        Comment[]        // No `onDelete` here
 }
 
 model TaskAssignment {
@@ -82,8 +83,8 @@ model TaskAssignment {
   userId Int
   taskId Int
 
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade) // Specify `onDelete` here
   user User @relation(fields: [userId], references: [userId])
-  task Task @relation(fields: [taskId], references: [id])
 }
 
 model Attachment {
@@ -93,7 +94,7 @@ model Attachment {
   taskId       Int
   uploadedById Int
 
-  task       Task @relation(fields: [taskId], references: [id])
+  task       Task @relation(fields: [taskId], references: [id], onDelete: Cascade) // Specify `onDelete` here
   uploadedBy User @relation(fields: [uploadedById], references: [userId])
 }
 
@@ -103,6 +104,6 @@ model Comment {
   taskId Int
   userId Int
 
-  task Task @relation(fields: [taskId], references: [id])
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade) // Specify `onDelete` here
   user User @relation(fields: [userId], references: [userId])
 }

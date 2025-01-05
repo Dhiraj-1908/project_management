@@ -31,31 +31,31 @@ const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
     switch (priority?.toLowerCase()) {
       case 'urgent':
         return {
-          backgroundColor: '#fef2f2',
+          backgroundColor: '#faafba',
           borderColor: '#ef4444',
           badgeColor: 'bg-red-100 text-red-800'
         };
       case 'high':
         return {
-          backgroundColor: '#fff7ed',
+          backgroundColor: '#fab487',
           borderColor: '#f97316',
           badgeColor: 'bg-orange-100 text-orange-800'
         };
       case 'medium':
         return {
-          backgroundColor: '#fefce8',
+          backgroundColor: '#fff694',
           borderColor: '#facc15',
           badgeColor: 'bg-yellow-100 text-yellow-800'
         };
       case 'low':
         return {
-          backgroundColor: '#f0fdf4',
+          backgroundColor: '#a1f7bb',
           borderColor: '#22c55e',
           badgeColor: 'bg-green-100 text-green-800'
         };
       case 'backlog':
         return {
-          backgroundColor: '#f9fafb',
+          backgroundColor: '#e3e2da',
           borderColor: '#9ca3af',
           badgeColor: 'bg-gray-100 text-gray-800'
         };

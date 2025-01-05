@@ -11,7 +11,7 @@ import {
 } from "gantt-task-react";
 import "gantt-task-react/dist/index.css";
 import React, { useMemo, useState, useRef, useEffect } from "react";
-import { FaProjectDiagram, FaCalendarAlt, FaClock, FaChartLine } from "react-icons/fa";
+import { FaCalendarAlt, FaClock, FaChartLine } from "react-icons/fa";
 
 interface Project {
   id: string | number;
@@ -21,164 +21,159 @@ interface Project {
   progress?: number;
 }
 
-interface ColorConfig {
-  projectBackground: string;
-  projectProgress: string;
-  projectProgressSelected: string;
-  text: string;
-  border: string;
+interface CustomTooltipData {
+  name: string;
+  startDate: string;
+  endDate: string;
+  duration: string;
+  progress: string;
+}
+
+interface GanttTaskWithTooltip extends GanttTask {
+  customTooltip?: CustomTooltipData;
 }
 
 const Timeline: React.FC = () => {
   const isDarkMode = useAppSelector((state) => state.global.isDarkMode);
   const { data: projectsData, isLoading, isError } = useGetProjectsQuery();
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const scrollAnimationRef = useRef<number | undefined>(undefined);
-  const lastScrollPosition = useRef<number>(0);
-  const isMouseDown = useRef<boolean>(false);
-
+  
   const [displayOptions, setDisplayOptions] = useState<DisplayOption>({
     viewMode: ViewMode.Month,
     locale: "en-US",
   });
 
-  // Enhanced smooth scrolling with animation frame and boundary check
-  useEffect(() => {
-    const scrollContainer = scrollContainerRef.current;
-    if (!scrollContainer) return;
-
-    let startX: number;
-    let scrollLeft: number;
-    let currentVelocity = 0;
-    const friction = 0.85;
-    const velocityScale = 0.8;
-
-    const animate = () => {
-      if (!scrollContainer) return;
-
-      if (Math.abs(currentVelocity) > 0.1) {
-        const maxScroll = scrollContainer.scrollWidth - scrollContainer.clientWidth;
-        const newScrollLeft = scrollContainer.scrollLeft + currentVelocity;
-
-        // Check if we're at the boundaries
-        if (newScrollLeft >= 0 && newScrollLeft <= maxScroll) {
-          scrollContainer.scrollLeft = newScrollLeft;
-          currentVelocity *= friction;
-          scrollAnimationRef.current = requestAnimationFrame(animate);
-        } else {
-          // Stop animation at boundaries
-          currentVelocity = 0;
-        }
-      }
-    };
-
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      
-      if (scrollContainer) {
-        const maxScroll = scrollContainer.scrollWidth - scrollContainer.clientWidth;
-        const newScrollLeft = scrollContainer.scrollLeft + (e.deltaX || e.deltaY);
-
-        // Only update velocity if we're not at the boundaries
-        if (newScrollLeft >= 0 && newScrollLeft <= maxScroll) {
-          if (scrollAnimationRef.current) {
-            cancelAnimationFrame(scrollAnimationRef.current);
-          }
-          
-          currentVelocity = (e.deltaX || e.deltaY) * velocityScale;
-          scrollAnimationRef.current = requestAnimationFrame(animate);
-        }
-      }
-    };
-
-    const handleMouseDown = (e: MouseEvent) => {
-      isMouseDown.current = true;
-      startX = e.pageX - scrollContainer.offsetLeft;
-      scrollLeft = scrollContainer.scrollLeft;
-      
-      if (scrollAnimationRef.current) {
-        cancelAnimationFrame(scrollAnimationRef.current);
-      }
-      
-      document.body.style.userSelect = 'none';
-    };
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isMouseDown.current) return;
-      
-      const x = e.pageX - scrollContainer.offsetLeft;
-      const walk = (x - startX) * 1.5;
-      const newScrollLeft = scrollLeft - walk;
-      
-      // Check boundaries before scrolling
-      const maxScroll = scrollContainer.scrollWidth - scrollContainer.clientWidth;
-      scrollContainer.scrollLeft = Math.max(0, Math.min(newScrollLeft, maxScroll));
-    };
-
-    const handleMouseUp = () => {
-      isMouseDown.current = false;
-      document.body.style.userSelect = '';
-    };
-
-    const handleMouseLeave = () => {
-      isMouseDown.current = false;
-      document.body.style.userSelect = '';
-    };
-
-    scrollContainer.addEventListener('wheel', handleWheel, { passive: false });
-    scrollContainer.addEventListener('mousedown', handleMouseDown);
-    scrollContainer.addEventListener('mousemove', handleMouseMove);
-    scrollContainer.addEventListener('mouseup', handleMouseUp);
-    scrollContainer.addEventListener('mouseleave', handleMouseLeave);
-
-    return () => {
-      if (scrollAnimationRef.current) {
-        cancelAnimationFrame(scrollAnimationRef.current);
-      }
-      scrollContainer.removeEventListener('wheel', handleWheel);
-      scrollContainer.removeEventListener('mousedown', handleMouseDown);
-      scrollContainer.removeEventListener('mousemove', handleMouseMove);
-      scrollContainer.removeEventListener('mouseup', handleMouseUp);
-      scrollContainer.removeEventListener('mouseleave', handleMouseLeave);
-    };
-  }, []);
-
-  // Memoized Gantt tasks
   const ganttTasks = useMemo(() => {
-    return (
-      (projectsData as Project[])?.map((projectItem) => {
-        const startDate = new Date(projectItem.startDate);
-        const endDate = new Date(projectItem.endDate);
-        const duration = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+    return (projectsData as Project[])?.map((projectItem) => {
+      const startDate = new Date(projectItem.startDate);
+      const endDate = new Date(projectItem.endDate);
+      const duration = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
 
-        return {
-          start: startDate,
-          end: endDate,
+      return {
+        start: startDate,
+        end: endDate,
+        name: projectItem.name,
+        id: `Project-${projectItem.id}`,
+        type: "project",
+        progress: projectItem.progress ?? 50,
+        isDisabled: false,
+        customTooltip: {
           name: projectItem.name,
-          id: `Project-${projectItem.id}`,
-          type: "project",
-          progress: projectItem.progress ?? 50,
-          isDisabled: false,
-          customTooltip: {
-            name: projectItem.name,
-            startDate: startDate.toLocaleDateString(),
-            endDate: endDate.toLocaleDateString(),
-            duration: `${duration} days`,
-            progress: `${projectItem.progress ?? 50}%`
-          }
-        } as GanttTask & { customTooltip?: any };
-      }) || []
-    );
+          startDate: startDate.toLocaleDateString(),
+          endDate: endDate.toLocaleDateString(),
+          duration: `${duration} days`,
+          progress: `${projectItem.progress ?? 50}%`
+        }
+      } as GanttTaskWithTooltip;
+    }) || [];
   }, [projectsData]);
 
-  const handleViewModeChange = (
-    event: React.ChangeEvent<HTMLSelectElement>
-  ) => {
-    setDisplayOptions((prev) => ({
+  const calculateScrollPosition = (date: Date, container: HTMLDivElement): number => {
+    if (!ganttTasks.length) return 0;
+    
+    const ganttElement = container.querySelector('.gantt-container');
+    if (!ganttElement) return 0;
+
+    const ganttStartDate = new Date(Math.min(...ganttTasks.map(task => task.start.getTime())));
+    const ganttEndDate = new Date(Math.max(...ganttTasks.map(task => task.end.getTime())));
+    
+    const totalDays = Math.ceil((ganttEndDate.getTime() - ganttStartDate.getTime()) / (1000 * 60 * 60 * 24));
+    const daysFromStart = Math.ceil((date.getTime() - ganttStartDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    let columnWidth = 150;
+    switch (displayOptions.viewMode) {
+      case ViewMode.Year:
+        columnWidth = 200;
+        break;
+      case ViewMode.Month:
+      case ViewMode.Week:
+      case ViewMode.Day:
+        columnWidth = 150;
+        break;
+    }
+
+    const listWidth = 161;
+    const datePosition = (daysFromStart / totalDays) * (totalDays * columnWidth);
+    let scrollPosition = listWidth + datePosition - (container.clientWidth / 2);
+    
+    return Math.max(0, Math.min(scrollPosition, container.scrollWidth - container.clientWidth));
+  };
+
+  const scrollToDate = (date: Date) => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer || !ganttTasks.length) return;
+
+    requestAnimationFrame(() => {
+      const scrollPosition = calculateScrollPosition(date, scrollContainer);
+      scrollContainer.scrollTo({
+        left: scrollPosition,
+        behavior: 'smooth'
+      });
+    });
+  };
+
+  // Handle initial scroll to show the full range
+  useEffect(() => {
+    if (ganttTasks.length > 0) {
+      const timer = setTimeout(() => {
+        const earliestDate = new Date(Math.min(...ganttTasks.map(task => task.start.getTime())));
+        scrollToDate(earliestDate);
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [ganttTasks.length]);
+
+  const handleViewModeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const newViewMode = event.target.value as ViewMode;
+    setDisplayOptions(prev => ({
       ...prev,
-      viewMode: event.target.value as ViewMode,
+      viewMode: newViewMode
     }));
   };
+
+  // New click handler for the container
+  const handleContainerClick = (event: React.MouseEvent) => {
+    const target = event.target as HTMLElement;
+    const taskRow = target.closest('.gantt-task-row');
+    
+    if (taskRow) {
+      const taskId = taskRow.getAttribute('data-task-id');
+      const task = ganttTasks.find(t => t.id === taskId);
+      if (task) {
+        scrollToDate(task.start);
+      }
+    }
+  };
+
+  useEffect(() => {
+    // Add click event listeners to task rows after component mounts
+    const container = scrollContainerRef.current;
+    if (container) {
+      const observer = new MutationObserver(() => {
+        const taskRows = container.querySelectorAll('.gantt-task-row');
+        taskRows.forEach(row => {
+          if (!row.getAttribute('data-click-handler-attached')) {
+            row.setAttribute('data-click-handler-attached', 'true');
+            row.addEventListener('click', (e) => {
+              const taskId = row.getAttribute('data-task-id');
+              const task = ganttTasks.find(t => t.id === taskId);
+              if (task) {
+                scrollToDate(task.start);
+              }
+            });
+          }
+        });
+      });
+
+      observer.observe(container, {
+        childList: true,
+        subtree: true
+      });
+
+      return () => observer.disconnect();
+    }
+  }, [ganttTasks]);
 
   const colorConfig = {
     light: {
@@ -205,64 +200,51 @@ const Timeline: React.FC = () => {
 
   return (
     <div className="max-w-full p-8 bg-gray-50 dark:bg-gray-900">
-      <header className="mb-6 flex items-center justify-between">
+      <header className="mb-6 flex items-center justify-between flex-wrap gap-4">
         <Header name="Projects Timeline" />
-        <div className="relative inline-block w-64">
-          <select
-            className={`
-              pl-4 pr-8 py-2 w-full rounded-md border-2 transition duration-300 appearance-none
-              focus:outline-none focus:ring-2
-              ${isDarkMode 
-                ? "bg-gray-800 text-white border-gray-600 hover:border-gray-500" 
-                : "bg-white text-black border-gray-300 hover:border-gray-400"
-              }
-            `}
-            value={displayOptions.viewMode}
-            onChange={handleViewModeChange}
-          >
-            <option value={ViewMode.Day}>Day</option>
-            <option value={ViewMode.Week}>Week</option>
-            <option value={ViewMode.Month}>Month</option>
-            <option value={ViewMode.Year}>Year</option>
-          </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
-            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-              <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-            </svg>
+        <div className="flex items-center gap-4">
+          <div className="relative inline-block w-48">
+            <select
+              className={`
+                pl-4 pr-8 py-2 w-full rounded-md border-2 transition duration-300 appearance-none
+                focus:outline-none focus:ring-2
+                ${isDarkMode 
+                  ? "bg-gray-800 text-white border-gray-600 hover:border-gray-500 focus:border-blue-500" 
+                  : "bg-white text-black border-gray-300 hover:border-gray-400 focus:border-blue-600"
+                }
+              `}
+              value={displayOptions.viewMode}
+              onChange={handleViewModeChange}
+            >
+              <option value={ViewMode.Day}>Day</option>
+              <option value={ViewMode.Week}>Week</option>
+              <option value={ViewMode.Month}>Month</option>
+              <option value={ViewMode.Year}>Year</option>
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
+              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+              </svg>
+            </div>
           </div>
         </div>
       </header>
 
       <div
         ref={scrollContainerRef}
-        className="overflow-x-auto rounded-md shadow-lg will-change-transform"
+        className="overflow-x-auto rounded-md shadow-lg"
+        onClick={handleContainerClick}
         style={{
           backgroundColor: currentColors.projectBackground,
           color: currentColors.text,
           scrollbarWidth: 'thin',
           scrollbarColor: `${isDarkMode ? '#4B5563 #1F2937' : '#CBD5E1 #F1F5F9'}`,
-          transform: 'translateZ(0)',
-          backfaceVisibility: 'hidden',
-          perspective: '1000px',
-          WebkitFontSmoothing: 'antialiased',
-          MozOsxFontSmoothing: 'grayscale',
         }}
       >
         <style jsx>{`
-          div {
-            -webkit-transform: translateZ(0);
-            -moz-transform: translateZ(0);
-            -ms-transform: translateZ(0);
-            -o-transform: translateZ(0);
-            transform: translateZ(0);
-            -webkit-backface-visibility: hidden;
-            -moz-backface-visibility: hidden;
-            -ms-backface-visibility: hidden;
-            backface-visibility: hidden;
-            scroll-behavior: smooth;
-          }
           div::-webkit-scrollbar {
             height: 8px;
+            width: 8px;
           }
           div::-webkit-scrollbar-track {
             background: ${isDarkMode ? '#1F2937' : '#F1F5F9'};
@@ -274,6 +256,14 @@ const Timeline: React.FC = () => {
           }
           div::-webkit-scrollbar-thumb:hover {
             background: ${isDarkMode ? '#6B7280' : '#94A3B8'};
+          }
+
+          .gantt-task-row {
+            cursor: pointer;
+          }
+
+          .gantt-task-row:hover {
+            background-color: ${isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'};
           }
         `}</style>
         <div className="timeline min-w-[1200px]">
@@ -296,7 +286,7 @@ const Timeline: React.FC = () => {
             rowHeight={40}
             ganttHeight={500}
             TooltipContent={({ task }) => {
-              const customTooltip = (task as any).customTooltip;
+              const customTooltip = (task as GanttTaskWithTooltip).customTooltip;
               if (!customTooltip) return null;
 
               return (
